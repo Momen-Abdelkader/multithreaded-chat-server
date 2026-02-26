@@ -1,113 +1,125 @@
-# Multi-client-chat
+# Multithreaded Chatroom
 
-A simple client-server chat application implemented in Java that allows multiple users to communicate through a central server.
+## Contents
 
-## Features
+- [Overview](#overview)
+- [Class Diagram](#class-diagram)
+- [How to Run](#how-to-run)
+- [Commands](#commands)
+- [Troubleshooting](#troubleshooting)
 
-- Multi-user chat communication
-- Private messaging between users
-- Simple and intuitive command system
+## Overview
 
-## Components
+A multi-user chat application built with Java. Clients connect to a central server over TCP sockets and can broadcast messages or send private messages to specific users.
 
-The application consists of three main Java classes:
+**Features:**
+- Concurrent multi-client connections via multithreading
+- Broadcast messaging to all connected users
+- Private messaging between specific users
+- Online user listing
+- Automatic anonymous username assignment for unnamed clients
+- Graceful connection and disconnection handling
 
-1. **ChatServer**: Manages connections and message distribution.
-2. **ChatClient**: Connects to the server and provides a user interface.
-3. **ClientHandler**: Handles individual client connections on the server side.
+## Class Diagram
 
-## Requirements
+```mermaid
+classDiagram
+    direction TB
 
-- Java Runtime Environment (JRE) 8 or higher
-- Network connectivity between client and server
+    class ChatServer {
+        -listener: ServerSocket
+        -clients: LinkedList~ClientHandler~
+        -is_running: boolean
+        +start()
+        +close()
+        +broadcastMessage(message: String, sender: ClientHandler)
+        +sendPrivateMessage(sender: ClientHandler, receiver: String, message: String) boolean
+        +getOnlineUsers() String
+        +removeClient(client: ClientHandler)
+        +addClient(client: ClientHandler)
+    }
+
+    class ClientHandler {
+        -client: Socket
+        -server: ChatServer
+        -input: BufferedReader
+        -output: BufferedWriter
+        -client_username: String
+        -is_running: boolean
+        +run()
+        +sendMessage(message: String)
+        +closeConnection()
+        -handlePrivateMessage(message: String)
+        +getClientUsername() String
+    }
+
+    class ChatClient {
+        -socket: Socket
+        -input: BufferedReader
+        -output: BufferedWriter
+        -username: String
+        -is_running: boolean
+        +listenForMessages()
+        +sendMessage(message: String)
+        +close()
+        +isConnected() boolean
+    }
+
+    ChatServer "1" --> "*" ClientHandler : manages
+    ClientHandler --> ChatServer : references
+    ChatClient ..> ChatServer : connects via TCP
+```
+
+**Design Highlights:**
+- **Multithreaded** — each client connection is handled in its own thread via `ClientHandler implements Runnable`
+- **Separation of Concerns** — server logic, client logic, and per-connection handling are cleanly separated into distinct classes
+- **Thread Safety** — shared client list operations are `synchronized` to prevent race conditions
+- **Graceful Shutdown** — resources (sockets, streams) are properly closed on disconnect or error
+
+**Notes:**
+- `ChatServer` listens on port `8080` by default and spawns a new `ClientHandler` thread for each accepted connection.
+- `ClientHandler` reads the client's username on initialization and broadcasts join/leave events to all other clients.
+- `ChatClient` runs a dedicated listener thread to receive messages asynchronously while the main thread handles user input.
 
 ## How to Run
 
-### Option 1: Running from Source Files (Simplest Method)
+> **Prerequisites**: Java 8 or higher
 
-#### Starting the Server
-
+**1. Clone the repo and navigate to it**
+```bash
+git clone https://github.com/your-username/multi-client-chat.git
+cd multi-client-chat/src
 ```
+
+**2. Start the server**
+```bash
 java ChatServer.java
 ```
 
-#### Starting a Client
-
-```
+**3. Start a client** (in a separate terminal)
+```bash
 java ChatClient.java
 ```
 
-When starting a client:
-1. Enter the server IP address when prompted (or press Enter for localhost).
-2. Enter your desired username.
-3. Start chatting!
+When prompted, enter the server IP (or press Enter for `localhost`) and choose a username.
 
-### Alternative: Running from Compiled Classes
+> **Tip:** You can also compile first with `javac *.java` and then run with `java ChatServer` / `java ChatClient`.
 
-If you prefer to compile first:
-
-1. Compile the Java files:
-   ```
-   javac ChatServer.java ClientHandler.java
-   javac ChatClient.java
-   ```
-
-2. Run the compiled classes:
-   ```
-   java ChatServer
-   java ChatClient
-   ```
-
-### Option 2: Using an IDE
-
-1. Import the source files into your preferred IDE (Eclipse, IntelliJ IDEA, NetBeans)
-2. Run the `ChatServer` class to start the server
-3. Run the `ChatClient` class to start a client
-
-
-## Client Commands
+## Commands
 
 | Command | Description |
-|---------|-------------|
-| `/exit` | Disconnect from the chat server |
+|---|---|
 | `/msg "username" <message>` | Send a private message to a specific user |
 | `/list` | Display all currently online users |
-
-## Implementation Details
-
-### ChatServer
-- Accepts client connections and creates a `ClientHandler` for each client
-- Maintains a list of connected clients
-- Provides methods for broadcasting messages to all clients
-- Handles private messages between clients
-
-### ChatClient
-- Connects to the server using a socket
-- Provides a command-line interface for user interaction
-- Runs a separate thread for receiving messages from the server
-- Handles user commands and message sending
-
-### ClientHandler
-- Manages communication with a specific client
-- Parses commands from client messages
-- Routes messages between the client and server
-
-## Error Handling
-
-The application includes robust error handling for:
-- Connection failures
-- Client disconnections
-- I/O errors
-- Invalid commands
+| `/exit` | Disconnect from the chat server |
 
 ## Troubleshooting
 
-### Common Issues:
-1. **"Address already in use" error**: The server port (8080 by default) is already in use. Either stop the other application using the port or change the port number in `ChatServer.java`.
-
-2. **Connection refused**: Ensure the server is running before starting clients. Check if a firewall is blocking the connection.
-
-3. **Clients can't connect to a remote server**: Make sure to use the correct IP address of the server and that there are no network restrictions.
+| Problem | Solution |
+|---|---|
+| `Address already in use` | Port 8080 is occupied. Stop the other process or change the port in `ChatServer.java`. |
+| `Connection refused` | Make sure the server is running before starting clients. Check firewall settings. |
+| Can't connect remotely | Verify the server's IP address and ensure no network restrictions are blocking port 8080. |
 
 ## License
 
